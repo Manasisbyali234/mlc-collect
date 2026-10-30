@@ -4,6 +4,7 @@ const tabs = [
   { to: '/admin', label: 'Dashboard', end: true },
   { to: '/admin/customers', label: 'Customers (CIF)' },
   { to: '/admin/loans', label: 'Loan accounts' },
+  { to: '/admin/loan-applications', label: 'Loan Applications' },
   { to: '/admin/collections', label: 'Collections' },
   { to: '/admin/deposits', label: 'Deposits' },
   { to: '/admin/targets', label: 'Targets' },

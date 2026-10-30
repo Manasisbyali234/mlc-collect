@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+export { LoanApplications, ApplicationDetail } from './LoanApplicationScreens.jsx';
 
 const Pill = ({ c, children }) => <span className={`pill ${c}`}>{children}</span>;
 const Switch = ({ on: initial = false }) => {

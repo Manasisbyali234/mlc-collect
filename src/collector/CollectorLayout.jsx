@@ -6,6 +6,7 @@ const tabs = [
   { to: '/app/customers', label: 'Customers' },
   { to: '/app/deposit', label: 'Deposit' },
   { to: '/app/targets', label: 'Targets' },
+  { to: '/app/loan-collection', label: 'Loan Collection' },
 ];
 
 export default function CollectorLayout() {

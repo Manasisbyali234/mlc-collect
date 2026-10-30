@@ -3,11 +3,13 @@ import Login from './Login.jsx';
 import CollectorLayout from './collector/CollectorLayout.jsx';
 import {
   Home, Collect, Customer, Record, LoanAccount, Deposit, Targets,
+  LoanCollection, NewMemberForm, LoanApplicationForm,
 } from './collector/Screens.jsx';
 import AdminLayout from './admin/AdminLayout.jsx';
 import {
   Dashboard, Alerts, CustomerProfile, OpenLoan, CollectionGrid,
   DepositVerification, Settings, CollectorTargets,
+  LoanApplications, ApplicationDetail,
 } from './admin/Screens.jsx';
 
 function Launcher() {
@@ -39,6 +41,9 @@ export default function App() {
         <Route path="loan" element={<LoanAccount />} />
         <Route path="deposit" element={<Deposit />} />
         <Route path="targets" element={<Targets />} />
+        <Route path="loan-collection" element={<LoanCollection />} />
+        <Route path="loan-collection/new-member" element={<NewMemberForm />} />
+        <Route path="loan-collection/apply/:memberId" element={<LoanApplicationForm />} />
       </Route>
 
       <Route path="/admin" element={<AdminLayout />}>
@@ -50,6 +55,8 @@ export default function App() {
         <Route path="targets" element={<CollectorTargets />} />
         <Route path="alerts" element={<Alerts />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="loan-applications" element={<LoanApplications />} />
+        <Route path="loan-applications/:appId" element={<ApplicationDetail />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
