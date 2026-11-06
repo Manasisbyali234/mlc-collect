@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 const tabs = [
   { to: '/admin', label: 'Dashboard', end: true },
@@ -9,13 +9,19 @@ const tabs = [
   { to: '/admin/deposits', label: 'Deposits' },
   { to: '/admin/targets', label: 'Targets' },
   { to: '/admin/alerts', label: 'Alerts' },
+  { to: '/admin/reports', label: 'Reports' },
+  { to: '/admin/sanction-letters', label: 'Sanction Letters' },
   { to: '/admin/settings', label: 'Settings' },
 ];
 
 export default function AdminLayout() {
   const { pathname } = useLocation();
+  const nav = useNavigate();
+  const user = JSON.parse(localStorage.getItem('mlc_user') || '{"name":"Admin","role":"admin"}');
+  const initials = user.name.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  function logout() { localStorage.removeItem('mlc_user'); nav('/'); }
   const sub =
-    pathname.startsWith('/admin/deposits') ? 'Accountable Officer · Priya Joshi'
+    pathname.startsWith('/admin/deposits') ? 'Accountable Officer'
     : pathname.startsWith('/admin/settings') ? 'Super Admin'
     : 'Loan collection · Head office';
   return (
@@ -33,8 +39,9 @@ export default function AdminLayout() {
           ))}
         </nav>
         <div className="a-user">
-          <span>Manjunath · Admin</span>
-          <div className="avatar">MP</div>
+          <span>{user.name} · {user.role}</span>
+          <div className="avatar">{initials}</div>
+          <button onClick={logout} style={{ marginLeft:10, background:'rgba(255,255,255,.12)', border:0, color:'inherit', borderRadius:8, padding:'6px 14px', fontSize:13, fontWeight:600, cursor:'pointer' }}>Logout</button>
         </div>
       </header>
       <main className="a-main"><Outlet /></main>

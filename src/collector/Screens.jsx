@@ -1,16 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { api } from '../api.js';
 export { LoanCollection, NewMemberForm, LoanApplicationForm } from './LoanCollectionScreens.jsx';
-
-function Bar({ pct, green, tick }) {
-  return (
-    <div className="bar">
-      <i className={green ? 'green' : ''} style={{ width: `${pct}%` }} />
-      {tick != null && <b style={{ left: `${tick}%` }} />}
-    </div>
-  );
-}
-
 function PageHeader({ title, sub, children }) {
   return (
     <div className="page-header">
@@ -22,69 +13,45 @@ function PageHeader({ title, sub, children }) {
 
 /* ---------- 1. Home ---------- */
 export function Home() {
+  const [stats, setStats] = useState(null);
+  const nav = useNavigate();
+  const user = JSON.parse(localStorage.getItem('mlc_user') || '{"name":"Collector","id":"COL-001"}');
+  useEffect(() => { Promise.resolve().then(() => api.getDashboard().then(setStats).catch(() => {})); }, []);
   return (
     <>
-      <PageHeader title="Namaskara, Ravi" sub="Collector · Hubballi East · Thu 08-Oct-2026">
-        <span className="pill yellow">Yellow · today</span>
-        <Link to="/app/collect" className="btn gold" style={{ padding: '14px 28px', fontSize: 17 }}>Collect →</Link>
+      <PageHeader title={`Namaskara, ${user.name}`} sub={`Collector · ${user.branch || ''} · ${new Date().toLocaleDateString('en-IN', { weekday:'short', day:'2-digit', month:'short', year:'numeric' })}`}>
+        <Link to="/app/loan-collection" className="btn gold" style={{ padding: '14px 28px', fontSize: 17 }}>Loan Collection →</Link>
       </PageHeader>
 
       <div className="cols">
-        <div className="panel pad span2" style={{ marginBottom: 18 }}>
+        <div className="panel pad span2 stat-card" style={{ marginBottom: 18 }} onClick={() => nav('/app/loan-collection')} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && nav('/app/loan-collection')}>
           <div className="row between" style={{ marginBottom: 14 }}>
             <div>
-              <div className="eyebrow">Today's collection</div>
-              <div className="big" style={{ fontSize: 44, margin: '6px 0 2px' }}>₹6,850</div>
-              <div className="muted">of ₹9,400 due · 73% · Cash ₹4,950 · PhonePe ₹1,900</div>
+              <div className="eyebrow">Loan Applications</div>
+              <div className="big" style={{ fontSize: 44, margin: '6px 0 2px' }}>{stats ? stats.totalApplications : '–'}</div>
+              <div className="muted">Total submitted · {stats ? stats.pendingApproval : 0} pending approval</div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div className="muted" style={{ fontSize: 14 }}>In hand</div>
-              <div className="mono" style={{ fontSize: 32, fontWeight: 700 }}>₹4,950</div>
+            <div
+              style={{ textAlign: 'right', cursor: 'pointer' }}
+              onClick={e => { e.stopPropagation(); nav('/app/loan-collection?status=Approved'); }}
+              role="button" tabIndex={0}
+              onKeyDown={e => e.key === 'Enter' && (e.stopPropagation(), nav('/app/loan-collection?status=Approved'))}
+            >
+              <div className="muted" style={{ fontSize: 14 }}>Approved</div>
+              <div className="mono" style={{ fontSize: 32, fontWeight: 700 }}>{stats ? stats.approved : '–'}</div>
             </div>
           </div>
-          <Bar pct={73} />
         </div>
 
-        <div className="panel pad">
-          <div className="eyebrow">Active loan accounts</div>
-          <div className="stat-num">94</div>
-          <div className="muted">81 customers (CIF)</div>
+        <div className="panel pad stat-card" onClick={() => nav('/app/customers')} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && nav('/app/customers')}>
+          <div className="eyebrow">Members</div>
+          <div className="stat-num">{stats ? stats.totalMembers : '–'}</div>
+          <div className="muted">registered</div>
         </div>
-        <div className="panel pad">
-          <div className="eyebrow">Pending today</div>
-          <div className="stat-num">26</div>
-          <div className="muted">68 accounts paid</div>
-        </div>
-
-        <div className="panel pad">
-          <div className="row between" style={{ marginBottom: 14 }}>
-            <b style={{ fontSize: 18 }}>Payment behaviour</b>
-            <span className="muted">October</span>
-          </div>
-          <div className="beh">
-            <div className="g">On time<b>71</b></div>
-            <div className="y">Missing dates<b>15</b></div>
-            <div className="r">Not paying<b>8</b></div>
-          </div>
-        </div>
-
-        <div className="panel pad span2">
-          <div className="row between" style={{ marginBottom: 14 }}>
-            <b style={{ fontSize: 18 }}>October targets</b>
-            <span className="muted">Day 8 of 31</span>
-          </div>
-          <div className="trow">
-            <div className="row between"><span>New applicants</span><span>9 / 15</span></div>
-            <Bar pct={60} green />
-          </div>
-          <div className="trow">
-            <div className="row between"><span>Approved loans</span><span>6 / 10</span></div>
-            <Bar pct={60} green />
-          </div>
-          <div className="trow">
-            <div className="row between"><span>Collection</span><span>₹62.4k / ₹2.6L</span></div>
-            <Bar pct={24} />
-          </div>
+        <div className="panel pad stat-card" onClick={() => nav('/app/loan-collection?status=Disbursed')} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && nav('/app/loan-collection?status=Disbursed')}>
+          <div className="eyebrow">Disbursed</div>
+          <div className="stat-num">{stats ? stats.disbursed : '–'}</div>
+          <div className="muted">loans disbursed</div>
         </div>
       </div>
     </>
@@ -92,172 +59,181 @@ export function Home() {
 }
 
 /* ---------- 2. Today's collection list ---------- */
-const rows = [
-  { ini: 'LH', name: 'Lakshmi Hiremath', cif: '100245', loans: '2 loans', due: '₹600', action: 'collect' },
-  { ini: 'BP', name: 'Basavaraj Patil', cif: '100118', loans: '1 loan', due: '₹100', action: 'paid', amt: '₹100' },
-  { ini: 'MA', name: 'Mahantesh Angadi', cif: '100097', loans: '1 loan', due: '₹800', tag: 'red', arrears: true, action: 'collect' },
-  { ini: 'SK', name: 'Shobha Kulkarni', cif: '100130', loans: '1 loan', due: '₹200', action: 'collect' },
-  { ini: 'GD', name: 'Geeta Desai', cif: '100134', loans: '1 loan', due: '₹300', tag: 'late', action: 'collect' },
-  { ini: 'SG', name: 'Suresh Gouda', cif: '100141', loans: '1 loan', reason: 'shop closed', action: 'notpaid' },
-];
-
 export function Collect() {
-  const nav = useNavigate();
-  const [filter, setFilter] = useState('Pending 26');
-  const filters = ['Pending 26', 'Paid 68', 'Red 8', 'Gokul Rd'];
+  const [collections, setCollections] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const user = JSON.parse(localStorage.getItem('mlc_user') || '{"name":"Collector","id":"COL-001"}');
+  useEffect(() => {
+    Promise.resolve().then(() => api.getCollections({ collectorId: user.id })
+      .then(setCollections).finally(() => setLoading(false)));
+  }, []);
+  const total = collections.reduce((s, c) => s + (Number(c.amount) || 0), 0);
   return (
     <>
-      <PageHeader title="Today's collection" sub="08-Oct · 81 customers · 94 loan accounts">
-        <div className="chips">
-          {filters.map((f) => (
-            <button key={f} className={`chip ${filter === f ? 'active' : ''}`} onClick={() => setFilter(f)}>{f}</button>
-          ))}
+      <PageHeader title="Today's collections" sub={new Date().toLocaleDateString('en-IN', { weekday:'short', day:'2-digit', month:'short', year:'numeric' })} />
+      {loading ? (
+        <div className="panel pad" style={{ textAlign:'center', padding:48 }}><p className="muted">Loading…</p></div>
+      ) : collections.length === 0 ? (
+        <div className="panel pad" style={{ textAlign:'center', padding:48 }}>
+          <p className="muted">No collections recorded yet. Use <b>Record</b> to add entries.</p>
         </div>
-      </PageHeader>
-
-      <input className="search" placeholder="Search name, mobile, CIF or account no." style={{ marginBottom: 14 }} />
-
-      <div className="panel scroll-x" style={{ marginBottom: 18 }}>
-        <table className="dtable">
-          <thead>
-            <tr><th>Customer</th><th>CIF</th><th>Loans</th><th className="r">Due</th><th>Status</th><th></th></tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.cif}>
-                <td>
-                  <div className="row" style={{ gap: 10 }}>
-                    <div className="avatar" style={{ width: 36, height: 36, fontSize: 13 }}>{r.ini}</div>
-                    <Link to="/app/customers" style={{ fontWeight: 700 }}>{r.name}</Link>
-                    {r.tag === 'red' && <span className="pill red">Red</span>}
-                    {r.tag === 'late' && <span className="pill yellow">Late</span>}
-                  </div>
-                </td>
-                <td className="mono muted">{r.cif}</td>
-                <td>{r.loans}{r.arrears && <span className="muted" style={{ fontSize: 13 }}> · incl. arrears</span>}</td>
-                <td className="r mono">{r.due || <span className="muted">{r.reason}</span>}</td>
-                <td>
-                  {r.action === 'paid' && <span className="pill green">Paid {r.amt}</span>}
-                  {r.action === 'notpaid' && <span className="pill grey">Not paid</span>}
-                </td>
-                <td>
-                  {r.action === 'collect' && <button className="btn sm" onClick={() => nav('/app/record')}>Collect</button>}
-                </td>
+      ) : (
+        <div className="panel scroll-x" style={{ marginBottom: 18 }}>
+          <table className="dtable">
+            <thead><tr><th>Member</th><th className="r">Amount</th><th>Mode</th><th>Reference</th><th>Date</th></tr></thead>
+            <tbody>{collections.map(c => (
+              <tr key={c.id}>
+                <td><b>{c.memberName}</b></td>
+                <td className="r mono">₹{Number(c.amount).toLocaleString('en-IN')}</td>
+                <td>{c.mode}</td>
+                <td className="mono" style={{ fontSize:12 }}>{c.reference || '–'}</td>
+                <td className="mono" style={{ fontSize:13 }}>{c.date}</td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="panel pad">
-        <div className="row between">
-          <div>
-            <div className="eyebrow">Day-end total</div>
-            <div className="mono" style={{ fontSize: 32, fontWeight: 700, margin: '4px 0 2px' }}>₹6,850</div>
-            <div className="muted">Cash ₹4,950 · PhonePe ₹1,900</div>
-          </div>
-          <Link to="/app/deposit" className="btn gold" style={{ padding: '16px 32px', fontSize: 18 }}>Deposit →</Link>
+            ))}</tbody>
+          </table>
         </div>
-      </div>
+      )}
+      {collections.length > 0 && (
+        <div className="panel pad">
+          <div className="row between">
+            <div>
+              <div className="eyebrow">Total collected</div>
+              <div className="mono" style={{ fontSize: 32, fontWeight: 700, margin: '4px 0 2px' }}>₹{total.toLocaleString('en-IN')}</div>
+            </div>
+            <Link to="/app/deposit" className="btn gold" style={{ padding: '16px 32px', fontSize: 18 }}>Deposit →</Link>
+          </div>
+        </div>
+      )}
     </>
   );
 }
 
 /* ---------- 4. Customer profile ---------- */
 export function Customer() {
-  const nav = useNavigate();
+  const [members, setMembers] = useState([]);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { Promise.resolve().then(() => api.getMembers().then(setMembers).finally(() => setLoading(false))); }, []);
+  const filtered = members.filter(m => {
+    const q = search.toLowerCase();
+    return !q || [m.name, m.mobile, m.memberId].some(v => v && v.toLowerCase().includes(q));
+  });
   return (
     <>
-      <PageHeader title="Lakshmi Hiremath" sub="Kirana shop · Gokul Road · member since Mar 2025">
-        <span className="mono" style={{ background: 'var(--gold)', color: 'var(--g900)', borderRadius: 10, padding: '8px 14px', fontWeight: 700 }}>CIF 100245</span>
-        <button className="btn sm" onClick={() => nav('/app/record')}>Collect ₹600</button>
-      </PageHeader>
-
-      <div className="panel pad" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 18, marginBottom: 18 }}>
-        <div><div className="eyebrow">Active loans</div><div className="stat-num">2</div></div>
-        <div><div className="eyebrow">Balance</div><div className="stat-num">₹12.6k</div></div>
-        <div><div className="eyebrow">Due today</div><div className="stat-num">₹600</div></div>
-      </div>
-
-      <div className="cols">
-        <div>
-          <div className="panel pad" style={{ marginBottom: 18 }}>
-            <div className="eyebrow" style={{ marginBottom: 12 }}>KYC · Unique identity</div>
-            <div className="kv"><span className="sans">Mobile</span><span>98861 40021</span></div>
-            <div className="kv"><span className="sans">Aadhaar</span><span>XXXX XXXX 4417</span></div>
-            <div className="kv"><span className="sans">PAN</span><span>BQRPH4421K</span></div>
-            <div className="kv"><span className="sans">Address</span><span className="sans">#14, 2nd Cross, Gokul Rd, Hubballi</span></div>
-          </div>
+      <PageHeader title="Customers" sub="Registered members" />
+      <input className="search" placeholder="Search name, mobile, member ID…" style={{ marginBottom: 14 }} value={search} onChange={e => setSearch(e.target.value)} />
+      {loading ? (
+        <div className="panel pad" style={{ textAlign:'center', padding:48 }}><p className="muted">Loading…</p></div>
+      ) : filtered.length === 0 ? (
+        <div className="panel pad" style={{ textAlign:'center', padding:48 }}>
+          <p className="muted">{search ? 'No members match.' : 'No members yet.'}</p>
+          <Link to="/app/loan-collection/new-member" className="btn gold" style={{ marginTop:16, display:'inline-block' }}>+ Register New Member</Link>
         </div>
-
-        <div>
-          <div className="panel-head" style={{ padding: '0 0 12px' }}><h3>Loan accounts under this CIF</h3><span className="muted">3 total</span></div>
-          <Link to="/app/loan" className="loan-card">
-            <div className="row between"><span className="acc">MCS-26-000123</span><span className="pill yellow">Yellow · 3 days behind</span></div>
-            <div className="sub"><span>₹5,000 · ₹100/day · day 22 of 55</span><span>Bal <b>₹3,600</b></span></div>
-            <Bar pct={40} />
-          </Link>
-          <Link to="/app/loan" className="loan-card">
-            <div className="row between"><span className="acc">MCS-26-000188</span><span className="pill green">Green · on time</span></div>
-            <div className="sub"><span>₹10,000 · ₹200/day · day 10 of 55</span><span>Bal <b>₹9,000</b></span></div>
-            <Bar pct={18} green />
-          </Link>
-          <div className="loan-card closed">
-            <div className="row between">
-              <span className="muted"><b className="mono" style={{ color: 'var(--ink)' }}>MCS-25-000041</b> · ₹5,000 · closed 02-Aug-2026</span>
-              <span className="pill grey">Closed</span>
-            </div>
-          </div>
+      ) : (
+        <div className="panel scroll-x">
+          <table className="dtable">
+            <thead><tr><th>Member ID</th><th>Name</th><th>Mobile</th><th>Village/City</th><th>District</th></tr></thead>
+            <tbody>{filtered.map(m => (
+              <tr key={m.memberId}>
+                <td className="mono" style={{ fontSize:13 }}>{m.memberId}</td>
+                <td><b>{m.name}</b></td>
+                <td className="mono">{m.mobile}</td>
+                <td>{m.village}</td>
+                <td>{m.district}</td>
+              </tr>
+            ))}</tbody>
+          </table>
         </div>
-      </div>
+      )}
     </>
   );
 }
 
 /* ---------- 3. Record collection ---------- */
 export function Record() {
-  const [mode, setMode] = useState('PhonePe');
-  const [amount, setAmount] = useState('600');
-  const [chip, setChip] = useState('dues+arrears');
+  const [mode, setMode] = useState('Cash');
+  const [amount, setAmount] = useState('');
+  const [memberName, setMemberName] = useState('');
+  const [memberSearch, setMemberSearch] = useState('');
+  const [members, setMembers] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [reference, setReference] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const nav = useNavigate();
+  const user = JSON.parse(localStorage.getItem('mlc_user') || '{"name":"Collector","id":"COL-001"}');
+
+  useEffect(() => { api.getMembers().then(setMembers).catch(() => {}); }, []);
+
+  const suggestions = memberSearch.length > 0
+    ? members.filter(m => [m.name, m.mobile, m.memberId].some(v => v && v.toLowerCase().includes(memberSearch.toLowerCase()))).slice(0, 6)
+    : [];
+
+  async function handleSave() {
+    if (!amount || !memberName.trim()) { alert('Enter member name and amount'); return; }
+    setSaving(true);
+    try {
+      await Promise.resolve().then(() => api.saveCollection({
+        collectorId: user.id,
+        collectorName: user.name,
+        memberName,
+        amount,
+        mode,
+        reference,
+        date: new Date().toLocaleDateString('en-IN'),
+      }));
+      setSaved(true);
+    } catch (e) { alert('Error: ' + e.message); }
+    finally { setSaving(false); }
+  }
+
+  if (saved) return (
+    <div style={{ maxWidth:500, margin:'60px auto', textAlign:'center' }}>
+      <div style={{ fontSize:64 }}>&#10003;</div>
+      <h2 style={{ marginTop:16 }}>Collection Saved!</h2>
+      <p className='muted'>₹{amount} recorded for {memberName}</p>
+      <button className='btn gold' style={{ marginTop:20 }} onClick={() => { setSaved(false); setAmount(''); setMemberName(''); setMemberSearch(''); setReference(''); }}>Record Another</button>
+      <Link to='/app/collect' className='btn outline' style={{ marginTop:10, display:'block' }}>Back to Collections</Link>
+    </div>
+  );
+
   return (
     <>
-      <PageHeader title="Record collection" sub="Lakshmi Hiremath · CIF 100245" />
-
+      <PageHeader title="Record collection" sub={user.name} />
       <div className="cols">
         <div>
           <div className="panel pad" style={{ marginBottom: 18 }}>
-            <div className="lbl">Amount received</div>
-            <div className="amt-input"><span>₹</span><input value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
-            <div className="chips">
-              <button className={`chip ${chip === 'dues' ? 'sel' : ''}`} onClick={() => { setChip('dues'); setAmount('300'); }}>₹300 dues only</button>
-              <button className={`chip ${chip === 'dues+arrears' ? 'sel' : ''}`} onClick={() => { setChip('dues+arrears'); setAmount('600'); }}>₹600 dues + arrears</button>
-              <button className={`chip ${chip === 'close' ? 'sel' : ''}`} onClick={() => setChip('close')}>Close a loan</button>
+            <div className="lbl">Member name</div>
+            <div style={{ position: 'relative', marginBottom: 14 }}>
+              {memberName ? (
+                <div style={{ display:'flex', alignItems:'center', gap:10, border:'1px solid var(--g800)', borderRadius:14, padding:'10px 14px', background:'var(--green-bg)' }}>
+                  <span style={{ flex:1, fontSize:15, fontWeight:600 }}>{memberName}</span>
+                  <button style={{ border:0, background:'none', color:'var(--red-tx)', cursor:'pointer', fontSize:13, fontWeight:700 }} onClick={() => { setMemberName(''); setMemberSearch(''); }}>✕ Change</button>
+                </div>
+              ) : (
+                <>
+                  <input className="input" value={memberSearch} onChange={e => { setMemberSearch(e.target.value); setShowSuggestions(true); }} onFocus={() => setShowSuggestions(true)} onBlur={() => setTimeout(() => setShowSuggestions(false), 150)} placeholder="Search member name, mobile, ID…" />
+                  {showSuggestions && suggestions.length > 0 && (
+                    <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#fff', border:'1px solid var(--line)', borderRadius:14, boxShadow:'0 8px 24px rgba(0,0,0,.12)', zIndex:20, overflow:'hidden', marginTop:4 }}>
+                      {suggestions.map(m => (
+                        <div key={m.memberId} style={{ padding:'12px 16px', cursor:'pointer', borderBottom:'1px solid var(--line)', fontSize:14 }}
+                          onMouseDown={() => { setMemberName(m.name); setMemberSearch(''); setShowSuggestions(false); }}>
+                          <b>{m.name}</b>
+                          <span style={{ color:'var(--muted)', fontSize:12, marginLeft:10 }}>{m.memberId} · {m.mobile}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {showSuggestions && memberSearch.length > 0 && suggestions.length === 0 && (
+                    <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#fff', border:'1px solid var(--line)', borderRadius:14, padding:'12px 16px', zIndex:20, marginTop:4, fontSize:14, color:'var(--muted)' }}>No members found</div>
+                  )}
+                </>
+              )}
             </div>
-          </div>
-
-          <div className="panel" style={{ marginBottom: 18 }}>
-            <div className="split-head"><span>SPLIT ACROSS LOAN ACCOUNTS</span><b>₹600 OF ₹600</b></div>
-            <div className="split-row">
-              <div><span className="acc">MCS-26-000123</span><small>₹100 due + ₹300 arrears</small></div>
-              <input defaultValue="400" />
-            </div>
-            <div className="split-row">
-              <div><span className="acc">MCS-26-000188</span><small>₹200 due · on time</small></div>
-              <input defaultValue="200" />
-            </div>
-          </div>
-
-          <div className="panel pad" style={{ marginBottom: 18 }}>
-            <div className="lbl">Not paid?</div>
-            <div className="chips">
-              {['Absent', 'Refused', 'Pay tomorrow', 'Shop closed'].map((r) => (
-                <button key={r} className="chip">{r}</button>
-              ))}
-            </div>
+            <div className="lbl">Amount received (₹)</div>
+            <div className="amt-input"><span>₹</span><input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" /></div>
           </div>
         </div>
-
         <div>
           <div className="panel pad" style={{ marginBottom: 18 }}>
             <div className="lbl">Payment mode</div>
@@ -268,23 +244,14 @@ export function Record() {
             </div>
             {mode === 'PhonePe' && (
               <>
-                <div className="lbl">PhonePe UTR / transaction ID (required)</div>
-                <input className="input mono" defaultValue="T2610081842 3399" />
-                <div className="two" style={{ marginTop: 12 }}>
-                  <button className="input dashed" style={{ cursor: 'pointer' }}>+ Payment screenshot</button>
-                  <input className="input mono" style={{ textAlign: 'center' }} defaultValue="08-Oct-2026" />
-                </div>
+                <div className="lbl" style={{ marginTop:14 }}>UTR / transaction ID</div>
+                <input className="input mono" value={reference} onChange={e => setReference(e.target.value)} placeholder="e.g. T2610081842" />
               </>
             )}
           </div>
-
           <div className="panel pad">
-            <div className="row between" style={{ marginBottom: 16 }}>
-              <span className="muted">Balance after save (both loans)</span>
-              <b className="mono" style={{ color: 'var(--ink)', fontSize: 20 }}>₹12,000</b>
-            </div>
-            <button className="btn block" style={{ padding: 18, fontSize: 18 }} onClick={() => nav('/app/collect')}>
-              Save ₹{amount || 0} · {mode}
+            <button className="btn block" style={{ padding: 18, fontSize: 18 }} onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving…' : `Save ₹${amount || 0} · ${mode}`}
             </button>
           </div>
         </div>
@@ -295,80 +262,32 @@ export function Record() {
 
 /* ---------- 5. Loan account ---------- */
 export function LoanAccount() {
-  const nav = useNavigate();
-  const days = [
-    ['Fri', '100', 'p'], ['Sat', '0', 'm'], ['Sun', '100', 'p'], ['Mon', '0', 'm'],
-    ['Tue', '0', 'm'], ['Wed', '100', 'p'], ['Today', '–', 't'],
-  ];
-  const hist = [
-    ['07-Oct', '100', 'Cash', '3,600'],
-    ['06-Oct', '0', 'Absent', '3,700'],
-    ['05-Oct', '0', 'Shop closed', '3,700'],
-    ['04-Oct', '100', 'PhonePe', '3,700'],
-    ['03-Oct', '0', 'Pay tomorrow', '3,800'],
-  ];
+  const [accounts, setAccounts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => { Promise.resolve().then(() => api.getLoanAccounts().then(setAccounts).finally(() => setLoading(false))); }, []);
   return (
     <>
-      <PageHeader title="MCS-26-000123" sub="Lakshmi Hiremath · CIF 100245">
-        <span className="pill yellow">Yellow</span>
-        <button className="btn outline sm" onClick={() => nav(-1)}>← Back</button>
-        <Link to="/app/record" className="btn sm">Collect ₹400</Link>
-      </PageHeader>
-
-      <div className="cols">
-        <div>
-          <div className="panel pad" style={{ marginBottom: 18 }}>
-            <div className="row between" style={{ marginBottom: 14 }}>
-              <div>
-                <div className="eyebrow">Balance to pay</div>
-                <div className="big" style={{ fontSize: 44, margin: '6px 0 4px' }}>₹3,600</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="eyebrow">Day</div>
-                <div className="mono" style={{ fontSize: 32, fontWeight: 700, marginTop: 6 }}>22 / 55</div>
-              </div>
-            </div>
-            <Bar pct={40} />
-          </div>
-
-          <div className="panel pad" style={{ marginBottom: 18 }}>
-            <div className="kv"><span className="sans">Loan + interest (flat)</span><span>₹5,000 + ₹500</span></div>
-            <div className="kv"><span className="sans">Total repayable</span><span>₹5,500</span></div>
-            <div className="kv"><span className="sans">Collected · expected to date</span><span>₹1,900 · ₹2,200</span></div>
-            <div className="kv"><span className="sans">Arrears</span><span style={{ color: 'var(--yellow-tx)', fontWeight: 700 }}>₹300 · 3 days</span></div>
-            <div className="kv"><span className="sans">Start → end</span><span>17-Sep → 10-Nov-2026</span></div>
-            <div className="kv"><span className="sans">Referrer · guarantor</span><span className="sans">Geeta Desai · Shivanand H.</span></div>
-          </div>
+      <PageHeader title="Loan Accounts" sub="All active loan accounts" />
+      {loading ? (
+        <div className="panel pad" style={{ textAlign:'center', padding:48 }}><p className="muted">Loading…</p></div>
+      ) : accounts.length === 0 ? (
+        <div className="panel pad" style={{ textAlign:'center', padding:48 }}><p className="muted">No loan accounts yet.</p></div>
+      ) : (
+        <div className="panel scroll-x">
+          <table className="dtable">
+            <thead><tr><th>Loan ID</th><th>Member</th><th>Loan Type</th><th className="r">Amount</th><th>Date</th></tr></thead>
+            <tbody>{accounts.map(a => (
+              <tr key={a.id}>
+                <td className="mono" style={{ fontSize:13 }}>{a.id}</td>
+                <td><b>{a.memberName}</b></td>
+                <td>{a.loanType}</td>
+                <td className="r mono">Rs.{a.loanAmount}</td>
+                <td className="mono" style={{ fontSize:13 }}>{a.date}</td>
+              </tr>
+            ))}</tbody>
+          </table>
         </div>
-
-        <div>
-          <div className="panel pad" style={{ marginBottom: 18 }}>
-            <div className="row between" style={{ marginBottom: 12 }}>
-              <b style={{ fontSize: 17 }}>Last 7 days</b>
-              <span className="muted">₹100 due daily</span>
-            </div>
-            <div className="days7">
-              {days.map(([d, v, c]) => (<div key={d} className={c}>{d}<b>{v}</b></div>))}
-            </div>
-          </div>
-
-          <div className="panel scroll-x">
-            <table className="dtable">
-              <thead><tr><th>Date</th><th className="r">Paid</th><th>Mode</th><th className="r">Balance</th></tr></thead>
-              <tbody>
-                {hist.map(([d, p, m, b]) => (
-                  <tr key={d}>
-                    <td className="mono">{d}</td>
-                    <td className={`r mono ${p === '0' ? 'red' : ''}`}>{p}</td>
-                    <td className={p === '0' ? 'muted' : ''}>{m}</td>
-                    <td className="r mono">{b}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+      )}
     </>
   );
 }
@@ -376,12 +295,41 @@ export function LoanAccount() {
 /* ---------- 6. Deposit ---------- */
 export function Deposit() {
   const [how, setHow] = useState('Bank counter');
-  const [amount, setAmount] = useState('4,950');
-  const matches = amount.replace(/,/g, '') === '4950';
+  const [amount, setAmount] = useState('');
+  const [reference, setReference] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const user = JSON.parse(localStorage.getItem('mlc_user') || '{"name":"Collector","id":"COL-001"}');
+
+  async function handleSubmit() {
+    if (!amount || !reference.trim()) { alert('Enter amount and reference'); return; }
+    setSubmitting(true);
+    try {
+      await Promise.resolve().then(() => api.saveDeposit({
+        collectorId: user.id,
+        collectorName: user.name,
+        amount,
+        method: how,
+        reference,
+        date: new Date().toLocaleDateString('en-IN'),
+        status: 'To verify',
+      }));
+      setSubmitted(true);
+    } catch (e) { alert('Error: ' + e.message); }
+    finally { setSubmitting(false); }
+  }
+
+  if (submitted) return (
+    <div style={{ maxWidth:500, margin:'60px auto', textAlign:'center' }}>
+      <div style={{ fontSize:64 }}>&#10003;</div>
+      <h2 style={{ marginTop:16 }}>Deposit Submitted!</h2>
+      <p className='muted'>Accountable Officer will verify your deposit.</p>
+    </div>
+  );
+
   return (
     <>
-      <PageHeader title="Deposit to society" sub="Collection date 08-Oct-2026" />
-
+      <PageHeader title="Deposit to society" sub={`Collection date ${new Date().toLocaleDateString('en-IN')}`} />
       <div className="cols">
         <div>
           <div className="panel pad" style={{ marginBottom: 18, background: 'var(--g900)', color: '#fff', borderColor: 'transparent' }}>
@@ -389,47 +337,22 @@ export function Deposit() {
             <div style={{ margin: '6px 0', color: '#cfe3d9' }}>Society current account (shown for reference)</div>
             <div className="mono" style={{ fontSize: 16 }}>A/c XXXXXX7731 · IFSC KVGB0001234</div>
           </div>
-
-          <div className="panel pad" style={{ marginBottom: 18 }}>
-            <div className="kv"><span className="sans">Collected today</span><span style={{ fontSize: 18 }}>₹6,850</span></div>
-            <div className="kv"><span className="sans">PhonePe (already in society a/c)</span><span style={{ fontSize: 18 }}>− ₹1,900</span></div>
-            <hr style={{ border: 0, borderTop: '1px solid var(--line)' }} />
-            <div className="kv bold"><span className="sans">Cash to deposit</span><span style={{ fontSize: 20 }}>₹4,950</span></div>
-            <div className="kv"><span className="sans">Customers · entries</span><span>68 · 70</span></div>
-            <a className="link" href="#">View customer-wise breakup</a>
-          </div>
-
-          <div className="panel pad">
-            <div className="eyebrow" style={{ marginBottom: 10 }}>Earlier deposits</div>
-            <div className="row between" style={{ padding: '8px 0' }}>
-              <span className="mono">07-Oct · ₹5,300</span><span className="pill green">Verified</span>
-            </div>
-            <div className="row between" style={{ padding: '8px 0' }}>
-              <span className="mono">06-Oct · ₹4,700</span><span className="pill red">Mismatch −₹100</span>
-            </div>
-          </div>
         </div>
-
         <div>
           <div className="panel pad">
-            <div className="lbl">Amount deposited</div>
-            <div className="amt-input"><span>₹</span><input value={amount} onChange={(e) => setAmount(e.target.value)} /></div>
-            <div className="row between" style={{ marginBottom: 14 }}>
-              <span className="muted">Variance</span>
-              {matches ? <span className="pill green">₹0 · matches</span> : <span className="pill red">Mismatch</span>}
-            </div>
+            <div className="lbl">Amount deposited (₹)</div>
+            <div className="amt-input"><span>₹</span><input value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" /></div>
             <div className="chips" style={{ marginBottom: 18 }}>
               {['Bank counter', 'CDM', 'UPI to society', 'Handed to office'].map((h) => (
                 <button key={h} className={`chip ${how === h ? 'active' : ''}`} onClick={() => setHow(h)}>{h}</button>
               ))}
             </div>
             <div className="lbl">Bank reference / slip number</div>
-            <input className="input mono" defaultValue="KVGB/HBL/081026/0087" style={{ marginBottom: 14 }} />
-            <button className="input dashed" style={{ cursor: 'pointer', marginBottom: 18 }}>+ Upload deposit slip photo</button>
-            <button className="btn block" style={{ padding: 18, fontSize: 18 }}>Submit for verification</button>
-            <p className="muted" style={{ textAlign: 'center', fontSize: 14, margin: '10px 0 0' }}>
-              Accountable Officer is emailed · today's entries lock
-            </p>
+            <input className="input mono" value={reference} onChange={e => setReference(e.target.value)} placeholder="e.g. KVGB/HBL/081026/0087" style={{ marginBottom: 18 }} />
+            <button className="btn block" style={{ padding: 18, fontSize: 18 }} onClick={handleSubmit} disabled={submitting}>
+              {submitting ? 'Submitting…' : 'Submit for verification'}
+            </button>
+            <p className="muted" style={{ textAlign: 'center', fontSize: 14, margin: '10px 0 0' }}>Accountable Officer is emailed · today's entries lock</p>
           </div>
         </div>
       </div>
@@ -439,61 +362,29 @@ export function Deposit() {
 
 /* ---------- 7. Targets ---------- */
 export function Targets() {
-  const items = [
-    { t: 'New applicants', tag: 'green', pct: 60, tick: 26, l: '9 of 15', r: '231% of expected', green: true },
-    { t: 'Approved loans', tag: 'green', pct: 60, tick: 26, l: '6 of 10', r: '231% of expected', green: true },
-    { t: 'Approved value', tag: 'green', pct: 47, tick: 26, l: '₹35,000 of ₹75,000', r: '181% of expected', green: true },
-    { t: 'Collection amount', tag: 'yellow', pct: 24, tick: 26, l: '₹62,400 of ₹2,60,000', r: '92% of expected' },
-    { t: 'Collection efficiency', tag: 'yellow', pct: 82, tick: 95, l: '82% vs 95% target', r: '86% of target' },
-  ];
-  const months = [
-    ['Sep', '94%', 'g'], ['Aug', '88%', 'y'], ['Jul', '96%', 'g'], ['Jun', '67%', 'r'],
-  ];
+  const [targets, setTargets] = useState([]);
+  const user = JSON.parse(localStorage.getItem('mlc_user') || '{"name":"Collector","id":"COL-001"}');
+  useEffect(() => { Promise.resolve().then(() => api.getTargets().then(setTargets).catch(() => {})); }, []);
+  const myTarget = targets.find(t => t.collectorId === user.id) || null;
   return (
     <>
-      <PageHeader title="My targets · October" sub="Day 8 of 31 · expected so far 26%">
-        <span className="pill yellow">Overall: Yellow</span>
-      </PageHeader>
-
-      <div className="cols">
-        <div className="panel pad span2">
-          <div className="score" style={{ marginBottom: 18 }}>
-            <div className="circ">82%</div>
-            <div>
-              <b style={{ fontSize: 22 }}>Overall: Yellow</b>
-              <p className="muted" style={{ margin: '6px 0 0', fontSize: 16 }}>
-                Collection efficiency is between 70% and 90% of target.
-              </p>
-            </div>
-          </div>
-          {items.map((it) => (
-            <div className="tg" key={it.t}>
-              <div className="row between">
-                <h4>{it.t}</h4>
-                <span className={`pill ${it.tag}`}>{it.tag === 'green' ? 'Green' : 'Yellow'}</span>
-              </div>
-              <Bar pct={it.pct} green={it.green} tick={it.tick} />
-              <div className="foot"><span>{it.l}</span><span>{it.r}</span></div>
-            </div>
-          ))}
-        </div>
-
-        <div className="panel pad span2">
-          <div className="eyebrow" style={{ marginBottom: 14 }}>Last 4 months</div>
-          <div className="months" style={{ padding: 0 }}>
-            {months.map(([m, v, c]) => (
-              <div key={m} style={{
-                background: c === 'g' ? 'var(--green-bg)' : c === 'y' ? 'var(--yellow-bg)' : 'var(--red-bg)',
-                color: c === 'g' ? 'var(--green-tx)' : c === 'y' ? 'var(--yellow-tx)' : 'var(--red-tx)',
-                borderRadius: 18, padding: 14, fontWeight: 600, fontSize: 16,
-              }}>
-                {m}<b style={{ display: 'block', fontSize: 28, marginTop: 2 }}>{v}</b>
+      <PageHeader title="My targets" sub={new Date().toLocaleDateString('en-IN', { month:'long', year:'numeric' })} />
+      {myTarget ? (
+        <div className="panel pad">
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:18 }}>
+            {[['New applicants', myTarget.newApplicants],['Approvals', myTarget.approvals],['Approved value', myTarget.approvedValue ? '₹'+myTarget.approvedValue : '–'],['Collection', myTarget.collection ? '₹'+myTarget.collection : '–'],['Efficiency target', myTarget.efficiency ? myTarget.efficiency+'%' : '–']].map(([k,v]) => (
+              <div key={k}>
+                <div className="eyebrow" style={{ fontSize:11 }}>{k}</div>
+                <div className="mono" style={{ fontSize:28, fontWeight:700 }}>{v || '–'}</div>
               </div>
             ))}
           </div>
-          <p className="muted" style={{ fontSize: 14, marginTop: 14, marginBottom: 0 }}>Black tick on each bar = where you should be today.</p>
         </div>
-      </div>
+      ) : (
+        <div className="panel pad" style={{ textAlign:'center', padding:48 }}>
+          <p className="muted">No targets set for you yet. Contact your admin.</p>
+        </div>
+      )}
     </>
   );
 }

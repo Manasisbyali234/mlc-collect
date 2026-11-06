@@ -1,11 +1,6 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-
-export const appStore = { members: [], applications: [] };
-
-function genId(prefix) {
-  return prefix + '-' + Math.random().toString(36).slice(2,8).toUpperCase();
-}
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { api } from '../api.js';
 
 function SectionHead({ n, title }) {
   return (
@@ -44,7 +39,12 @@ function Sel({ value, onChange, children }) {
 
 /* ===== Loan Collection Dashboard ===== */
 export function LoanCollection() {
-  const apps = appStore.applications;
+  const [apps, setApps] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeFilter = searchParams.get('status') || 'All';
+  const nav = useNavigate();
+  useEffect(() => { api.getApplications().then(setApps).finally(() => setLoading(false)); }, []);
   const counts = {
     total: apps.length,
     draft: apps.filter(a => a.status === 'Draft').length,
@@ -55,6 +55,9 @@ export function LoanCollection() {
     disbursed: apps.filter(a => a.status === 'Disbursed').length,
   };
   const sc = { Draft:'grey', 'Pending Admin Approval':'yellow', 'Under Review':'yellow', Approved:'green', Rejected:'red', Disbursed:'green' };
+  const filteredApps = activeFilter === 'All' ? apps : apps.filter(a => a.status === activeFilter);
+  function setFilter(status) { setSearchParams(status === 'All' ? {} : { status }); }
+  if (loading) return <div className='panel pad' style={{ textAlign:'center', padding:48 }}><p className='muted'>Loading…</p></div>;
   return (
     <>
       <div className='page-header'>
@@ -64,30 +67,36 @@ export function LoanCollection() {
         </div>
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14, marginBottom:14 }}>
-        {[['Total',counts.total,'#fff'],['Draft',counts.draft,'var(--soft)'],['Pending',counts.pending,'var(--yellow-bg)'],['Approved',counts.approved,'var(--green-bg)']].map(([l,v,bg]) => (
-          <div key={l} className='panel pad' style={{ background:bg }}>
+        {[['Total','All',counts.total,'#fff'],['Draft','Draft',counts.draft,'var(--soft)'],['Pending','Pending Admin Approval',counts.pending,'var(--yellow-bg)'],['Approved','Approved',counts.approved,'var(--green-bg)']].map(([l,s,v,bg]) => (
+          <div key={l} className={'panel pad stat-card' + (activeFilter === s ? ' stat-card-active' : '')} style={{ background:bg }} onClick={() => setFilter(s)} role='button' tabIndex={0} onKeyDown={e => e.key === 'Enter' && setFilter(s)}>
             <div className='eyebrow' style={{ fontSize:11 }}>{l}</div>
             <div className='stat-num'>{v}</div>
           </div>
         ))}
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:14, marginBottom:24 }}>
-        {[['Under Review',counts.review,'var(--yellow-bg)'],['Rejected',counts.rejected,'var(--red-bg)'],['Disbursed',counts.disbursed,'var(--green-bg)']].map(([l,v,bg]) => (
-          <div key={l} className='panel pad' style={{ background:bg }}>
+        {[['Under Review','Under Review',counts.review,'var(--yellow-bg)'],['Rejected','Rejected',counts.rejected,'var(--red-bg)'],['Disbursed','Disbursed',counts.disbursed,'var(--green-bg)']].map(([l,s,v,bg]) => (
+          <div key={l} className={'panel pad stat-card' + (activeFilter === s ? ' stat-card-active' : '')} style={{ background:bg }} onClick={() => setFilter(s)} role='button' tabIndex={0} onKeyDown={e => e.key === 'Enter' && setFilter(s)}>
             <div className='eyebrow' style={{ fontSize:11 }}>{l}</div>
             <div className='stat-num'>{v}</div>
           </div>
         ))}
       </div>
-      {apps.length === 0 ? (
+      {activeFilter !== 'All' && (
+        <div style={{ marginBottom:14, display:'flex', alignItems:'center', gap:10 }}>
+          <span className='pill yellow'>Filtered: {activeFilter}</span>
+          <button className='btn sm outline' onClick={() => setFilter('All')}>Clear filter</button>
+        </div>
+      )}
+      {filteredApps.length === 0 ? (
         <div className='panel pad' style={{ textAlign:'center', padding:48 }}>
-          <p className='muted'>No applications yet. Click <b>+ New Application</b> to get started.</p>
+          <p className='muted'>{apps.length === 0 ? <>No applications yet. Click <b>+ New Application</b> to get started.</> : 'No applications match this filter.'}</p>
         </div>
       ) : (
         <div className='panel scroll-x'>
           <table className='dtable'>
             <thead><tr><th>App ID</th><th>Member</th><th>Mobile</th><th>Loan Type</th><th className='r'>Amount</th><th>Date</th><th>Status</th><th>Loan ID</th></tr></thead>
-            <tbody>{apps.map(a => (
+            <tbody>{filteredApps.map(a => (
               <tr key={a.appId}>
                 <td className='mono' style={{ fontSize:13 }}>{a.appId}</td>
                 <td><b>{a.memberName}</b><div className='muted' style={{ fontSize:12 }}>{a.memberId}</div></td>
@@ -129,15 +138,16 @@ export function NewMemberForm() {
     return e;
   }
 
-  function handleNext(e) {
+  async function handleNext(e) {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) { setErr(errs); return; }
-    const dup = appStore.members.find(m => m.aadhaar === f.aadhaar || m.mobile === f.mobile);
-    if (dup) { setErr({ aadhaar: 'Member already registered with this Aadhaar/mobile' }); return; }
-    const id = genId('MBR');
-    appStore.members.push({ ...f, memberId: id, pan: f.pan.toUpperCase() });
-    nav('/app/loan-collection/apply/' + id);
+    try {
+      const member = await api.createMember({ ...f, pan: f.pan.toUpperCase() });
+      nav('/app/loan-collection/apply/' + member.memberId);
+    } catch (err) {
+      setErr({ aadhaar: err.message });
+    }
   }
 
   return (
@@ -196,11 +206,11 @@ export function LoanApplicationForm() {
   const nav = useNavigate();
   const pathParts = window.location.pathname.split('/');
   const memberId = pathParts[pathParts.length - 1];
-  const member = appStore.members.find(m => m.memberId === memberId) || {};
+  const [member, setMember] = useState({});
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [appId] = useState(() => genId('APP'));
+  const [appId] = useState(() => 'APP-' + Math.random().toString(36).slice(2,8).toUpperCase());
   const [loan, setLoan] = useState({ loanType: LOAN_TYPES[0], amount:'', tenure:'55', rate:'10', purpose:'' });
   const [bank, setBank] = useState({ holderName:'', bankName:'', branch:'', accNo:'', accNoConfirm:'', ifsc:'', accType:'Savings', upi:'' });
   const [docs, setDocs] = useState({ aadhaarFront:null, aadhaarBack:null, pan:null, passbook:null, photo:null, addressProof:null, nomineeId:null, other:null });
@@ -209,6 +219,10 @@ export function LoanApplicationForm() {
   const setB = k => e => setBank(p => ({ ...p, [k]: e.target.value }));
   const { interest, total, emi } = calcEmi(loan.amount, loan.rate, loan.tenure);
   const E = ({ k }) => err[k] ? <span style={{ color:'var(--red-tx)', fontSize:12, display:'block', marginTop:3 }}>{err[k]}</span> : null;
+
+  useEffect(() => { api.getMember(memberId).then(setMember).catch(() => {}); }, [memberId]);
+
+  const user = JSON.parse(localStorage.getItem('mlc_user') || '{"name":"Collector","id":"COL-001"}');
 
   function handleDoc(k, e) {
     const file = e.target.files[0];
@@ -247,26 +261,28 @@ export function LoanApplicationForm() {
   }
 
   function buildRecord(status) {
-    return { appId, memberId: member.memberId, memberName: member.name, mobile: member.mobile, loanType: loan.loanType, loanAmount: loan.amount, tenure: loan.tenure, rate: loan.rate, purpose: loan.purpose, interest, total, emi, bank, docs, date: new Date().toLocaleDateString('en-IN'), status, collectorName:'Ravi Naik', collectorId:'COL-001', statusHistory:[{ status, date: new Date().toLocaleString(), by:'Ravi Naik' }] };
+    return { appId, memberId: member.memberId, memberName: member.name, mobile: member.mobile, loanType: loan.loanType, loanAmount: loan.amount, tenure: loan.tenure, rate: loan.rate, purpose: loan.purpose, interest, total, emi, bank, docs: Object.fromEntries(Object.entries(docs).filter(([,v])=>v).map(([k,v])=>[k,{name:v.name,size:v.size}])), date: new Date().toLocaleDateString('en-IN'), status, collectorName: user.name, collectorId: user.id, statusHistory:[{ status, date: new Date().toLocaleString(), by: user.name }] };
   }
 
-  function saveDraft() {
-    const idx = appStore.applications.findIndex(a => a.appId === appId);
-    const rec = buildRecord('Draft');
-    if (idx >= 0) appStore.applications[idx] = rec; else appStore.applications.push(rec);
-    alert('Draft saved. App ID: ' + appId);
+  async function saveDraft() {
+    try {
+      await api.saveApplication(buildRecord('Draft'));
+      alert('Draft saved. App ID: ' + appId);
+    } catch (e) { alert('Error: ' + e.message); }
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const de = validateDocs();
     if (Object.keys(de).length) { setErr(de); return; }
     if (submitting) return;
     setSubmitting(true);
-    const idx = appStore.applications.findIndex(a => a.appId === appId);
-    const rec = buildRecord('Pending Admin Approval');
-    if (idx >= 0) appStore.applications[idx] = rec; else appStore.applications.push(rec);
-    setSubmitting(false);
-    setSubmitted(true);
+    try {
+      await api.saveApplication(buildRecord('Pending Admin Approval'));
+      setSubmitted(true);
+    } catch (e) {
+      alert(e.message || 'Submission failed');
+    }
+    finally { setSubmitting(false); }
   }
 
   if (submitted) return (
@@ -304,8 +320,8 @@ export function LoanApplicationForm() {
             <Field label='Interest Rate (%)'><Inp value={loan.rate} onChange={setL('rate')} mono /></Field>
             <Field label='EMI / Daily Due (Rs.)'><Inp value={loan.amount ? emi : ''} readOnly mono /></Field>
             <Field label='Loan Purpose' required><Inp value={loan.purpose} onChange={setL('purpose')} placeholder='e.g. Business expansion' /><E k='purpose' /></Field>
-            <Field label='Collector'><Inp value='Ravi Naik' readOnly /></Field>
-            <Field label='Collector ID'><Inp value='COL-001' readOnly mono /></Field>
+            <Field label='Collector'><Inp value={user.name} readOnly /></Field>
+            <Field label='Collector ID'><Inp value={user.id} readOnly mono /></Field>
             <Field label='Date'><Inp value={new Date().toLocaleDateString('en-IN')} readOnly /></Field>
           </div>
           {loan.amount > 0 && (

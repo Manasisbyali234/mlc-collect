@@ -1,0 +1,68 @@
+const BASE = '/api';
+
+async function req(method, path, body) {
+  const res = await fetch(BASE + path, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+  return res.json();
+}
+
+export const api = {
+  login: (mobile, password) => req('POST', '/login', { mobile, password }),
+  sendOtp: (mobile) => req('POST', '/otp/send', { mobile }),
+  verifyOtp: (mobile, otp) => req('POST', '/otp/verify', { mobile, otp }),
+  setPassword: (mobile, otp, password) => req('POST', '/set-password', { mobile, otp, password }),
+
+  getMembers: () => req('GET', '/members'),
+  getMember: (id) => req('GET', `/members/${id}`),
+  createMember: (data) => req('POST', '/members', data),
+
+  getApplications: () => req('GET', '/applications'),
+  getApplication: (id) => req('GET', `/applications/${id}`),
+  saveApplication: (data) => req('POST', '/applications', data),
+  updateApplication: (id, data) => req('PATCH', `/applications/${id}`, data),
+
+  getLoanAccounts: () => req('GET', '/loan-accounts'),
+  createLoanAccount: (data) => req('POST', '/loan-accounts', data),
+
+  getCollections: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return req('GET', `/collections${qs ? '?' + qs : ''}`);
+  },
+  saveCollection: (data) => req('POST', '/collections', data),
+
+  getDeposits: () => req('GET', '/deposits'),
+  saveDeposit: (data) => req('POST', '/deposits', data),
+  updateDeposit: (id, data) => req('PATCH', `/deposits/${id}`, data),
+
+  getUsers: () => req('GET', '/users'),
+  createUser: (data) => req('POST', '/users', data),
+
+  getTargets: () => req('GET', '/targets'),
+  saveTarget: (data) => req('POST', '/targets', data),
+  updateTarget: (id, data) => req('PATCH', `/targets/${id}`, data),
+
+  getDashboard: () => req('GET', '/dashboard'),
+
+  getReportSummary: () => req('GET', '/reports/summary'),
+  getReportDaily: (date) => req('GET', `/reports/daily?date=${date}`),
+  getReportWeekly: (from, to) => req('GET', `/reports/weekly?from=${from}&to=${to}`),
+  getReportMonthly: (year, month) => req('GET', `/reports/monthly?year=${year}&month=${month}`),
+  getReportDefaulters: (params={}) => { const qs=new URLSearchParams(params).toString(); return req('GET', `/reports/defaulters${qs?'?'+qs:''}`); },
+  getReportPaid: (params={}) => { const qs=new URLSearchParams(params).toString(); return req('GET', `/reports/paid${qs?'?'+qs:''}`); },
+  getReportCollectorWise: (params={}) => { const qs=new URLSearchParams(params).toString(); return req('GET', `/reports/collector-wise${qs?'?'+qs:''}`); },
+
+  getSanctionLetters: () => req('GET', '/sanction-letters'),
+  getSanctionLetter: (id) => req('GET', `/sanction-letters/${id}`),
+  updateSanctionLetter: (id, data) => req('PATCH', `/sanction-letters/${id}`, data),
+  regenerateSanctionLetter: (id) => req('POST', `/sanction-letters/${id}/regenerate`, {}),
+
+  borrowerLogin: (appId, mobile) => req('POST', '/borrower/login', { appId, mobile }),
+  getBorrowerDashboard: (appId) => req('GET', `/borrower/dashboard/${appId}`),
+};
